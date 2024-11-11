@@ -1,4 +1,34 @@
 import { getEventsFromICS } from "./ics";
+import { DateTime } from "luxon";
+
+const LOCAL_TIME_ZONE = DateTime.local().zone;
+const VTIMEZONE_GEORGIAN = `BEGIN:VTIMEZONE
+TZID:Georgian Standard Time
+BEGIN:STANDARD
+DTSTART:16010101T000000
+TZOFFSETFROM:+0400
+TZOFFSETTO:+0400
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:16010101T000000
+TZOFFSETFROM:+0400
+TZOFFSETTO:+0400
+END:DAYLIGHT
+END:VTIMEZONE`;
+
+const VTIMEZONE_UTC0 = `BEGIN:VTIMEZONE
+TZID:UTC
+BEGIN:STANDARD
+DTSTART:16010101T000000
+TZOFFSETFROM:+0000
+TZOFFSETTO:+0000
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:16010101T000000
+TZOFFSETFROM:+0000
+TZOFFSETTO:+0000
+END:DAYLIGHT
+END:VTIMEZONE`;
 
 describe("ics tests", () => {
     it("parses all day event", () => {
@@ -37,25 +67,8 @@ VERSION:2.0
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 X-WR-CALNAME:Obsidian Test Calendar
-X-WR-TIMEZONE:America/New_York
-BEGIN:VTIMEZONE
-TZID:America/New_York
-X-LIC-LOCATION:America/New_York
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0500
-TZOFFSETTO:-0400
-TZNAME:EDT
-DTSTART:19700308T020000
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-END:DAYLIGHT
-BEGIN:STANDARD
-TZOFFSETFROM:-0400
-TZOFFSETTO:-0500
-TZNAME:EST
-DTSTART:19701101T020000
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-END:STANDARD
-END:VTIMEZONE
+X-WR-TIMEZONE:UTC
+${VTIMEZONE_UTC0}
 BEGIN:VEVENT
 DTSTART;VALUE=DATE:20220302
 DTEND;VALUE=DATE:20220303
@@ -71,8 +84,8 @@ SUMMARY:All day event
 TRANSP:TRANSPARENT
 END:VEVENT
 BEGIN:VEVENT
-DTSTART;TZID=America/New_York:20220301T110000
-DTEND;TZID=America/New_York:20220301T123000
+DTSTART;TZID=UTC:20220301T110000
+DTEND;TZID=UTC:20220301T123000
 RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=TH,TU
 DTSTAMP:20230302T233513Z
 UID:5tt2avr2th0h65homv3b6jeqof@google.com
@@ -137,4 +150,93 @@ END:VCALENDAR
         const events = getEventsFromICS(ics);
         expect(events).toMatchSnapshot(ics);
     });
+
+    it("should convert timezones correctly using defined VTIMEZONE", () => {
+        const ics = [
+            "BEGIN:VCALENDAR",
+            "METHOD:PUBLISH",
+            "PRODID:Microsoft Exchange Server 2010",
+            "VERSION:2.0",
+            "X-WR-CALNAME:Calendar",
+            VTIMEZONE_GEORGIAN,
+
+            "BEGIN:VEVENT",
+            "DESCRIPTION: Event With TimeZone",
+            "EXDATE;TZID=Georgian Standard Time:20231225T150000",
+            "SUMMARY: Event With TimeZone",
+            "DTSTART;TZID=Georgian Standard Time:20231225T150000",
+            "DTEND;TZID=Georgian Standard Time:20231225T160000",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ].join("\n");
+
+        const events = getEventsFromICS(ics) as any[];
+        expect(events.length).toBe(1);
+
+        expect(events[0].endTime).toBe(timeFromUTCSeconds(1703505600));
+        expect(events[0].startTime).toBe(timeFromUTCSeconds(1703502000));
+    });
+
+    it("should convert timezones correctly using alias for VTIMEZONE", () => {
+        const ics = [
+            "BEGIN:VCALENDAR",
+            "METHOD:PUBLISH",
+            "PRODID:Microsoft Exchange Server 2010",
+            "VERSION:2.0",
+            "X-WR-CALNAME:Calendar",
+            VTIMEZONE_GEORGIAN,
+
+            "BEGIN:VEVENT",
+            "DESCRIPTION: Event With Alias",
+            "EXDATE;TZID=Caucasus Standard Time:20231225T150000",
+            "SUMMARY: Event With Alias",
+            "DTSTART;TZID=Caucasus Standard Time:20231225T150000",
+            "DTEND;TZID=Caucasus Standard Time:20231225T160000",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ].join("\n");
+
+        const events = getEventsFromICS(ics) as any[];
+        expect(events.length).toBe(1);
+
+        expect(events[0].endTime).toBe(timeFromUTCSeconds(1703505600));
+        expect(events[0].startTime).toBe(timeFromUTCSeconds(1703502000));
+    });
+
+    it("should fall back to UTC timezone if no VTIMEZONE found for event", () => {
+        const ics = [
+            "BEGIN:VCALENDAR",
+            "METHOD:PUBLISH",
+            "PRODID:Microsoft Exchange Server 2010",
+            "VERSION:2.0",
+            "X-WR-CALNAME:Calendar",
+            VTIMEZONE_GEORGIAN,
+
+            "BEGIN:VEVENT",
+            "DESCRIPTION: Event With Alias",
+            "EXDATE;TZID=Unknown Time:20231225T150000",
+            "SUMMARY: Event With Alias",
+            "DTSTART;TZID=Unknown Time:20231225T150000",
+            "DTEND;TZID=Unknown Time:20231225T160000",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ].join("\n");
+
+        const events = getEventsFromICS(ics) as any[];
+        expect(events.length).toBe(1);
+
+        expect(events[0].endTime).toBe(timeFromUTCSeconds(1703520000));
+        expect(events[0].startTime).toBe(timeFromUTCSeconds(1703516400));
+    });
 });
+
+function timeFromUTCSeconds(timestamp: number): string {
+    return DateTime.fromSeconds(timestamp, { zone: "UTC" })
+        .setZone(LOCAL_TIME_ZONE)
+        .toISOTime({
+            includeOffset: false,
+            includePrefix: false,
+            suppressMilliseconds: true,
+            suppressSeconds: true,
+        });
+}

@@ -2,21 +2,72 @@ import ical from "ical.js";
 import { OFCEvent, validateEvent } from "../../types";
 import { DateTime } from "luxon";
 import { rrulestr } from "rrule";
+import { getWindowsTimezoneAliases } from "./windows";
+const LOCAL_TIME_ZONE = DateTime.local().zone;
 
-function getDate(t: ical.Time): string {
-    return DateTime.fromSeconds(t.toUnixTime(), { zone: "UTC" }).toISODate();
-}
+class Timezones {
+    private timezones: Map<string, ical.Timezone>;
+    constructor(root: ical.Component) {
+        this.timezones = new Map();
+        (root.getAllSubcomponents("vtimezone") || []).forEach((tz) => {
+            const timezone = new ical.Timezone(tz);
+            this.timezones.set(timezone.tzid, timezone);
+        });
 
-function getTime(t: ical.Time): string {
-    if (t.isDate) {
-        return "00:00";
+        // set aliases for windows timezones
+        // since outlook calendars may not list them
+        // as separate VTIMEZONE elements, but still use in events
+        this.timezones.forEach((timezone) => {
+            const aliases = getWindowsTimezoneAliases(timezone.tzid);
+            if (aliases.length > 1) {
+                aliases
+                    .filter((alias) => !this.timezones.has(alias))
+                    .forEach((alias) => this.timezones.set(alias, timezone));
+            }
+        });
     }
-    return DateTime.fromSeconds(t.toUnixTime(), { zone: "UTC" }).toISOTime({
-        includeOffset: false,
-        includePrefix: false,
-        suppressMilliseconds: true,
-        suppressSeconds: true,
-    });
+    /**
+     * Returns new [ical.Time] converted to UTC zone
+     */
+    toUTC(t: ical.Time): ical.Time {
+        const tt = t.clone();
+        // using explicit zones collected earlier instead of [t.zone],
+        // because [t.zone] will often contain incorrect "floating" zone
+        // and therefore be useless for actual offset shift.
+        const tz = this.timezones.get(t.timezone);
+        if (tz) {
+            ical.Timezone.convert_time(tt, tz, ical.Timezone.utcTimezone);
+        }
+
+        return tt;
+    }
+
+    /**
+     * Converts ICal time to ISODate string in local timezone.
+     */
+    getDate(t: ical.Time): string {
+        return DateTime.fromSeconds(this.toUTC(t).toUnixTime(), { zone: "UTC" })
+            .setZone(LOCAL_TIME_ZONE)
+            .toISODate();
+    }
+
+    /**
+     * Converts ICal time to ISOTime string  in local timezone.
+     */
+    getTime(t: ical.Time): string {
+        if (t.isDate) {
+            return "00:00";
+        }
+
+        return DateTime.fromSeconds(this.toUTC(t).toUnixTime(), { zone: "UTC" })
+            .setZone(LOCAL_TIME_ZONE)
+            .toISOTime({
+                includeOffset: false,
+                includePrefix: false,
+                suppressMilliseconds: true,
+                suppressSeconds: true,
+            });
+    }
 }
 
 function extractEventUrl(iCalEvent: ical.Event): string {
@@ -31,7 +82,7 @@ function specifiesEnd(iCalEvent: ical.Event) {
     );
 }
 
-function icsToOFC(input: ical.Event): OFCEvent {
+function icsToOFC(input: ical.Event, timezones: Timezones): OFCEvent {
     if (input.isRecurring()) {
         const rrule = rrulestr(
             input.component.getFirstProperty("rrule").getFirstValue().toString()
@@ -43,37 +94,30 @@ function icsToOFC(input: ical.Event): OFCEvent {
                 const exdate = exdateProp.getFirstValue();
                 // NOTE: We only store the date from an exdate and recreate the full datetime exdate later,
                 // so recurring events with exclusions that happen more than once per day are not supported.
-                return getDate(exdate);
+                return timezones.getDate(exdate);
             });
 
+        const idDate = timezones.getTime(input.endDate);
         return {
             type: "rrule",
             title: input.summary,
-            id: `ics::${input.uid}::${getDate(input.startDate)}::recurring`,
+            id: `ics::${input.uid}::${idDate}::recurring`,
             rrule: rrule.toString(),
             skipDates: exdates,
-            startDate: getDate(
-                input.startDate.convertToZone(ical.Timezone.utcTimezone)
-            ),
+            startDate: timezones.getDate(input.startDate),
             ...(allDay
                 ? { allDay: true }
                 : {
                       allDay: false,
-                      startTime: getTime(
-                          input.startDate.convertToZone(
-                              ical.Timezone.utcTimezone
-                          )
-                      ),
-                      endTime: getTime(
-                          input.endDate.convertToZone(ical.Timezone.utcTimezone)
-                      ),
+                      startTime: timezones.getTime(input.startDate),
+                      endTime: timezones.getTime(input.endDate),
                   }),
         };
     } else {
-        const date = getDate(input.startDate);
+        const date = timezones.getDate(input.startDate);
         const endDate =
             specifiesEnd(input) && input.endDate
-                ? getDate(input.endDate)
+                ? timezones.getDate(input.endDate)
                 : undefined;
         const allDay = input.startDate.isDate;
         return {
@@ -86,8 +130,8 @@ function icsToOFC(input: ical.Event): OFCEvent {
                 ? { allDay: true }
                 : {
                       allDay: false,
-                      startTime: getTime(input.startDate),
-                      endTime: getTime(input.endDate),
+                      startTime: timezones.getTime(input.startDate),
+                      endTime: timezones.getTime(input.endDate),
                   }),
         };
     }
@@ -96,10 +140,7 @@ function icsToOFC(input: ical.Event): OFCEvent {
 export function getEventsFromICS(text: string): OFCEvent[] {
     const jCalData = ical.parse(text);
     const component = new ical.Component(jCalData);
-
-    // TODO: Timezone support
-    // const tzc = component.getAllSubcomponents("vtimezone");
-    // const tz = new ical.Timezone(tzc[0]);
+    const timezones = new Timezones(component);
 
     const events: ical.Event[] = component
         .getAllSubcomponents("vevent")
@@ -121,12 +162,12 @@ export function getEventsFromICS(text: string): OFCEvent[] {
     const baseEvents = Object.fromEntries(
         events
             .filter((e) => e.recurrenceId === null)
-            .map((e) => [e.uid, icsToOFC(e)])
+            .map((e) => [e.uid, icsToOFC(e, timezones)])
     );
 
     const recurrenceExceptions = events
         .filter((e) => e.recurrenceId !== null)
-        .map((e): [string, OFCEvent] => [e.uid, icsToOFC(e)]);
+        .map((e): [string, OFCEvent] => [e.uid, icsToOFC(e, timezones)]);
 
     for (const [uid, event] of recurrenceExceptions) {
         const baseEvent = baseEvents[uid];

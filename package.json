@@ -1,6 +1,6 @@
 {
     "name": "obsidian-full-calendar",
-    "version": "0.10.7",
+    "version": "0.10.8",
     "description": "Obsidian integration with Full Calendar (fullcalendar.io)",
     "main": "main.js",
     "scripts": {
