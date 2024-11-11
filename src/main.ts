@@ -72,9 +72,11 @@ export default class FullCalendarPlugin extends Plugin {
                 active: true,
             });
         } else {
-            await Promise.all(
-                leaves.map((l) => (l.view as CalendarView).onOpen())
-            );
+            const leaf = leaves[0];
+            await leaf.setViewState({
+                type: FULL_CALENDAR_VIEW_TYPE,
+                active: true,
+            });
         }
     }
     async onload() {
