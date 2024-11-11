@@ -301,6 +301,8 @@ export default class DailyNoteCalendar extends EditableCalendar {
         if (!file) {
             file = (await createDailyNote(m)) as TFile;
         }
+		await this.app.read(file);
+		await new Promise(resolve => setTimeout(resolve, 500));
         const metadata = await this.app.waitForMetadata(file);
 
         const headingInfo = metadata.headings?.find(
@@ -311,6 +313,7 @@ export default class DailyNoteCalendar extends EditableCalendar {
                 `Could not find heading ${this.heading} in daily note ${file.path}.`
             );
         }
+
         let lineNumber = await this.app.rewrite(file, (contents) => {
             const { page, lineNumber } = addToHeading(contents, {
                 heading: headingInfo,
