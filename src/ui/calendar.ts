@@ -7,6 +7,7 @@ import {
     EventClickArg,
     EventHoveringArg,
     EventSourceInput,
+    ToolbarInput,
 } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -54,6 +55,12 @@ interface ExtraRenderProps {
     ) => Promise<void>;
     toggleTask?: (event: EventApi, isComplete: boolean) => Promise<boolean>;
     forceNarrow?: boolean;
+    validRange?: { start: string; end: string };
+    headerToolbar?: false | ToolbarInput;
+    views?: {
+        timeGridDay: { left: string; right: string; center: string };
+        timeGrid3Days: { left: string; right: string; center: string };
+    };
 }
 
 export function renderCalendar(
@@ -71,6 +78,7 @@ export function renderCalendar(
         openContextMenuForEvent,
         toggleTask,
     } = settings || {};
+
     const modifyEventCallback =
         modifyEvent &&
         (async ({
@@ -87,6 +95,45 @@ export function renderCalendar(
                 revert();
             }
         });
+
+    const buildHeaderToolbar = (settings?: ExtraRenderProps) => {
+        if (settings?.headerToolbar) {
+            return settings?.headerToolbar;
+        }
+        if (isNarrow) {
+            return {
+                left: "prev,next today",
+                center: "title",
+                right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+            };
+        }
+        if (isMobile) {
+            return {
+                left: "prev,next today",
+                center: "title",
+                right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+            };
+        }
+        return false;
+    };
+
+    const buildViews = (settings?: ExtraRenderProps) => {
+        if (settings?.views) {
+            return settings?.views;
+        }
+        return {
+            timeGridDay: {
+                type: "timeGrid",
+                duration: { days: 1 },
+                buttonText: isNarrow ? "1" : "day",
+            },
+            timeGrid3Days: {
+                type: "timeGrid",
+                duration: { days: 3 },
+                buttonText: "3",
+            },
+        };
+    };
 
     const cal = new Calendar(containerEl, {
         plugins: [
@@ -105,41 +152,13 @@ export function renderCalendar(
         initialView:
             settings?.initialView?.[isNarrow ? "mobile" : "desktop"] ||
             (isNarrow ? "timeGrid3Days" : "timeGridWeek"),
+        validRange: settings?.validRange,
         nowIndicator: true,
         scrollTimeReset: false,
         dayMaxEvents: true,
 
-        headerToolbar: !isNarrow
-            ? {
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-              }
-            : !isMobile
-            ? {
-                  right: "today,prev,next",
-                  left: "timeGrid3Days,timeGridDay,listWeek",
-              }
-            : false,
-        footerToolbar: isMobile
-            ? {
-                  right: "today,prev,next",
-                  left: "timeGrid3Days,timeGridDay,listWeek",
-              }
-            : false,
-
-        views: {
-            timeGridDay: {
-                type: "timeGrid",
-                duration: { days: 1 },
-                buttonText: isNarrow ? "1" : "day",
-            },
-            timeGrid3Days: {
-                type: "timeGrid",
-                duration: { days: 3 },
-                buttonText: "3",
-            },
-        },
+        headerToolbar: buildHeaderToolbar(settings),
+        views: buildViews(settings),
         firstDay: settings?.firstDay,
         ...(settings?.timeFormat24h && {
             eventTimeFormat: {
