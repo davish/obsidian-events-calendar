@@ -35,7 +35,7 @@ rrulePlugin.recurringTypes[0].expand = function (errd, fr, de) {
         });
 };
 
-interface ExtraRenderProps {
+export interface ExtraRenderProps {
     eventClick?: (info: EventClickArg) => void;
     select?: (
         startDate: Date,

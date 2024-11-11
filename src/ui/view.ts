@@ -50,6 +50,17 @@ function getCalendarColors(color: string | null | undefined): {
     };
 }
 
+export function translateSources(plugin: FullCalendarPlugin) {
+    return plugin.cache.getAllEvents().map(
+        ({ events, editable, color, id }): EventSourceInput => ({
+            id,
+            events: events.flatMap((e) => toEventInput(e.id, e.event) || []),
+            editable,
+            ...getCalendarColors(color),
+        })
+    );
+}
+
 export class CalendarView extends ItemView {
     plugin: FullCalendarPlugin;
     inSidebar: boolean;
@@ -80,19 +91,6 @@ export class CalendarView extends ItemView {
         return this.inSidebar ? "Full Calendar" : "Calendar";
     }
 
-    translateSources() {
-        return this.plugin.cache.getAllEvents().map(
-            ({ events, editable, color, id }): EventSourceInput => ({
-                id,
-                events: events.flatMap(
-                    (e) => toEventInput(e.id, e.event) || []
-                ),
-                editable,
-                ...getCalendarColors(color),
-            })
-        );
-    }
-
     async onOpen() {
         await this.plugin.loadSettings();
         if (!this.plugin.cache) {
@@ -116,7 +114,7 @@ export class CalendarView extends ItemView {
             return;
         }
 
-        const sources: EventSourceInput[] = this.translateSources();
+        const sources: EventSourceInput[] = translateSources(this.plugin);
 
         if (this.fullCalendarView) {
             this.fullCalendarView.destroy();
@@ -309,7 +307,7 @@ export class CalendarView extends ItemView {
         this.callback = this.plugin.cache.on("update", (payload) => {
             if (payload.type === "resync") {
                 this.fullCalendarView?.removeAllEventSources();
-                const sources = this.translateSources();
+                const sources = translateSources(this.plugin);
                 sources.forEach((source) =>
                     this.fullCalendarView?.addEventSource(source)
                 );

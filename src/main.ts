@@ -4,8 +4,12 @@ import {
     FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
     FULL_CALENDAR_VIEW_TYPE,
 } from "./ui/view";
-import { renderCalendar } from "./ui/calendar";
+import {
+    renderCalendar as calendarRender,
+    ExtraRenderProps,
+} from "./ui/calendar";
 import { toEventInput } from "./ui/interop";
+import { translateSources } from "./ui/view";
 import {
     DEFAULT_SETTINGS,
     FullCalendarSettings,
@@ -19,6 +23,7 @@ import FullNoteCalendar from "./calendars/FullNoteCalendar";
 import DailyNoteCalendar from "./calendars/DailyNoteCalendar";
 import ICSCalendar from "./calendars/ICSCalendar";
 import CalDAVCalendar from "./calendars/CalDAVCalendar";
+import { EventSourceInput } from "@fullcalendar/core";
 
 export default class FullCalendarPlugin extends Plugin {
     settings: FullCalendarSettings = DEFAULT_SETTINGS;
@@ -58,7 +63,18 @@ export default class FullCalendarPlugin extends Plugin {
         FOR_TEST_ONLY: () => null,
     });
 
-    renderCalendar = renderCalendar;
+    translateSources = translateSources;
+    renderCalendar = (
+        containerEl: HTMLElement,
+        eventSources: EventSourceInput[],
+        settings?: ExtraRenderProps
+    ) => {
+        if (!eventSources) {
+            eventSources = translateSources(this);
+        }
+        return calendarRender(containerEl, eventSources, settings);
+    };
+
     processFrontmatter = toEventInput;
 
     async activateView() {
@@ -202,11 +218,17 @@ export default class FullCalendarPlugin extends Plugin {
         );
     }
 
-    async saveSettings() {
+    initializeSettings = async () => {
+        if (!this.cache.initialized) {
+            await this.saveSettings();
+        }
+    };
+
+    saveSettings = async () => {
         new Notice("Resetting the event cache with new settings...");
         await this.saveData(this.settings);
         this.cache.reset(this.settings.calendarSources);
         await this.cache.populate();
         this.cache.resync();
-    }
+    };
 }
