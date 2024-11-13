@@ -2,16 +2,17 @@ import ical from "ical.js";
 import { OFCEvent, validateEvent } from "../../types";
 import { DateTime } from "luxon";
 import { rrulestr } from "rrule";
+import iCalExp from "ical-expander";
 
 function getDate(t: ical.Time): string {
-    return DateTime.fromSeconds(t.toUnixTime(), { zone: "UTC" }).toISODate();
+    return DateTime.fromSeconds(t.toUnixTime()).toISODate();
 }
 
 function getTime(t: ical.Time): string {
     if (t.isDate) {
         return "00:00";
     }
-    return DateTime.fromSeconds(t.toUnixTime(), { zone: "UTC" }).toISOTime({
+    return DateTime.fromSeconds(t.toUnixTime()).toISOTime({
         includeOffset: false,
         includePrefix: false,
         suppressMilliseconds: true,
@@ -59,14 +60,8 @@ function icsToOFC(input: ical.Event): OFCEvent {
                 ? { allDay: true }
                 : {
                       allDay: false,
-                      startTime: getTime(
-                          input.startDate.convertToZone(
-                              ical.Timezone.utcTimezone
-                          )
-                      ),
-                      endTime: getTime(
-                          input.endDate.convertToZone(ical.Timezone.utcTimezone)
-                      ),
+                      startTime: getTime(input.startDate),
+                      endTime: getTime(input.endDate),
                   }),
         };
     } else {
@@ -94,12 +89,12 @@ function icsToOFC(input: ical.Event): OFCEvent {
 }
 
 export function getEventsFromICS(text: string): OFCEvent[] {
-    const jCalData = ical.parse(text);
-    const component = new ical.Component(jCalData);
-
-    // TODO: Timezone support
-    // const tzc = component.getAllSubcomponents("vtimezone");
-    // const tz = new ical.Timezone(tzc[0]);
+    var opts = {
+        ics: text,
+        maxIterations: 1000,
+    };
+    const expander = new iCalExp(opts);
+    const component = new ical.Component(expander.jCalData);
 
     const events: ical.Event[] = component
         .getAllSubcomponents("vevent")

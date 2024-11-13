@@ -3,14 +3,11 @@ import { DateTime, Duration } from "luxon";
 
 const stripTime = (date: DateTime) => {
     // Strip time from luxon dateTime.
-    return DateTime.fromObject(
-        {
-            year: date.year,
-            month: date.month,
-            day: date.day,
-        },
-        { zone: "utc" }
-    );
+    return DateTime.fromObject({
+        year: date.year,
+        month: date.month,
+        day: date.day,
+    });
 };
 
 export const ParsedDate = z.string();
