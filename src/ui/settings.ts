@@ -26,7 +26,9 @@ export interface FullCalendarSettings {
         mobile: string;
     };
     timeFormat24h: boolean;
-    clickToCreateEventFromMonthView: boolean;
+    clickToCreateEventFromMonthView?: boolean;
+    alwaysOpenInNewTab?: boolean;
+    ctrlClickToOpenFile?: boolean;
 }
 
 export const DEFAULT_SETTINGS: FullCalendarSettings = {
@@ -39,6 +41,8 @@ export const DEFAULT_SETTINGS: FullCalendarSettings = {
     },
     timeFormat24h: false,
     clickToCreateEventFromMonthView: true,
+    alwaysOpenInNewTab: false,
+    ctrlClickToOpenFile: true,
 };
 
 const WEEKDAYS = [
@@ -238,10 +242,42 @@ export class FullCalendarSettingTab extends PluginSettingTab {
             .setDesc("Switch off to open day view on click instead.")
             .addToggle((toggle) => {
                 toggle.setValue(
-                    this.plugin.settings.clickToCreateEventFromMonthView
+                    this.plugin.settings.clickToCreateEventFromMonthView ?? true
                 );
                 toggle.onChange(async (val) => {
                     this.plugin.settings.clickToCreateEventFromMonthView = val;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(containerEl)
+            .setName("Always open events in a new tab")
+            .setDesc(
+                "Switch off to only open events in a new tab when the current tab is pinned."
+            )
+            .addToggle((toggle) => {
+                toggle.setValue(
+                    this.plugin.settings.alwaysOpenInNewTab ?? false
+                );
+                toggle.onChange(async (val) => {
+                    this.plugin.settings.alwaysOpenInNewTab = val;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(containerEl)
+            .setName(
+                "Click opens the edit dialog (ctrl-click to open event note)"
+            )
+            .setDesc(
+                "Switch off to have click open note (ctrl-click for edit modal)."
+            )
+            .addToggle((toggle) => {
+                toggle.setValue(
+                    this.plugin.settings.ctrlClickToOpenFile ?? true
+                );
+                toggle.onChange(async (val) => {
+                    this.plugin.settings.ctrlClickToOpenFile = val;
                     await this.plugin.saveSettings();
                 });
             });

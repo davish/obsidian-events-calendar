@@ -126,14 +126,18 @@ export class CalendarView extends ItemView {
             forceNarrow: this.inSidebar,
             eventClick: async (info) => {
                 try {
-                    if (
+                    const hasModifierKey =
                         info.jsEvent.getModifierState("Control") ||
-                        info.jsEvent.getModifierState("Meta")
-                    ) {
+                        info.jsEvent.getModifierState("Meta");
+                    const shouldOpenFile =
+                        hasModifierKey &&
+                        this.plugin.settings.ctrlClickToOpenFile;
+                    if (shouldOpenFile) {
                         await openFileForEvent(
                             this.plugin.cache,
                             this.app,
-                            info.event.id
+                            info.event.id,
+                            this.plugin.settings
                         );
                     } else {
                         launchEditModal(this.plugin, info.event.id);

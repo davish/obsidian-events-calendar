@@ -6,12 +6,14 @@ import EventCache from "src/core/EventCache";
  * @param cache
  * @param param1 App
  * @param id event ID
+ * @param openInNewTab whether to open in new tab or not
  * @returns
  */
 export async function openFileForEvent(
     cache: EventCache,
     { workspace, vault }: { workspace: Workspace; vault: Vault },
-    id: string
+    id: string,
+    openInNewTab: boolean
 ) {
     const details = cache.getInfoForEditableEvent(id);
     if (!details) {
@@ -28,7 +30,7 @@ export async function openFileForEvent(
     if (!leaf) {
         return;
     }
-    if (leaf.getViewState().pinned) {
+    if (leaf.getViewState().pinned || openInNewTab) {
         leaf = workspace.getLeaf("tab");
     }
     await leaf.openFile(file);
