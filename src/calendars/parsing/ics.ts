@@ -4,14 +4,14 @@ import { DateTime } from "luxon";
 import { rrulestr } from "rrule";
 
 function getDate(t: ical.Time): string {
-    return DateTime.fromSeconds(t.toUnixTime(), { zone: "UTC" }).toISODate();
+    return DateTime.fromSeconds(t.toUnixTime()).toISODate();
 }
 
 function getTime(t: ical.Time): string {
     if (t.isDate) {
         return "00:00";
     }
-    return DateTime.fromSeconds(t.toUnixTime(), { zone: "UTC" }).toISOTime({
+    return DateTime.fromSeconds(t.toUnixTime()).toISOTime({
         includeOffset: false,
         includePrefix: false,
         suppressMilliseconds: true,
@@ -31,7 +31,15 @@ function specifiesEnd(iCalEvent: ical.Event) {
     );
 }
 
-function icsToOFC(input: ical.Event): OFCEvent {
+function icsToOFC(input: ical.Event, tz: ical.Timezone | null): OFCEvent {
+    const tzConvert = (time: ical.Time) => {
+        let convertedTime = time;
+        if (tz != null && tz.tzid != null && tz.tzid.length > 0) {
+            convertedTime = time.convertToZone(tz);
+        }
+        return convertedTime.convertToZone(ical.Timezone.utcTimezone);
+    };
+
     if (input.isRecurring()) {
         const rrule = rrulestr(
             input.component.getFirstProperty("rrule").getFirstValue().toString()
@@ -46,34 +54,27 @@ function icsToOFC(input: ical.Event): OFCEvent {
                 return getDate(exdate);
             });
 
+        const startDate = tzConvert(input.startDate);
         return {
             type: "rrule",
             title: input.summary,
-            id: `ics::${input.uid}::${getDate(input.startDate)}::recurring`,
+            id: `ics::${input.uid}::${getDate(startDate)}::recurring`,
             rrule: rrule.toString(),
             skipDates: exdates,
-            startDate: getDate(
-                input.startDate.convertToZone(ical.Timezone.utcTimezone)
-            ),
+            startDate: getDate(startDate),
             ...(allDay
                 ? { allDay: true }
                 : {
                       allDay: false,
-                      startTime: getTime(
-                          input.startDate.convertToZone(
-                              ical.Timezone.utcTimezone
-                          )
-                      ),
-                      endTime: getTime(
-                          input.endDate.convertToZone(ical.Timezone.utcTimezone)
-                      ),
+                      startTime: getTime(startDate),
+                      endTime: getTime(tzConvert(input.endDate)),
                   }),
         };
     } else {
-        const date = getDate(input.startDate);
+        const date = getDate(tzConvert(input.startDate));
         const endDate =
             specifiesEnd(input) && input.endDate
-                ? getDate(input.endDate)
+                ? getDate(tzConvert(input.endDate))
                 : undefined;
         const allDay = input.startDate.isDate;
         return {
@@ -86,8 +87,8 @@ function icsToOFC(input: ical.Event): OFCEvent {
                 ? { allDay: true }
                 : {
                       allDay: false,
-                      startTime: getTime(input.startDate),
-                      endTime: getTime(input.endDate),
+                      startTime: getTime(tzConvert(input.startDate)),
+                      endTime: getTime(tzConvert(input.endDate)),
                   }),
         };
     }
@@ -96,10 +97,6 @@ function icsToOFC(input: ical.Event): OFCEvent {
 export function getEventsFromICS(text: string): OFCEvent[] {
     const jCalData = ical.parse(text);
     const component = new ical.Component(jCalData);
-
-    // TODO: Timezone support
-    // const tzc = component.getAllSubcomponents("vtimezone");
-    // const tz = new ical.Timezone(tzc[0]);
 
     const events: ical.Event[] = component
         .getAllSubcomponents("vevent")
@@ -116,17 +113,23 @@ export function getEventsFromICS(text: string): OFCEvent[] {
             }
         });
 
+    let tz: ical.Timezone | null = null;
+    const tzc = component.getAllSubcomponents("vtimezone");
+    if (tzc != null) {
+        tz = new ical.Timezone(tzc[0]);
+    }
+
     // Events with RECURRENCE-ID will have duplicated UIDs.
     // We need to modify the base event to exclude those recurrence exceptions.
     const baseEvents = Object.fromEntries(
         events
             .filter((e) => e.recurrenceId === null)
-            .map((e) => [e.uid, icsToOFC(e)])
+            .map((e) => [e.uid, icsToOFC(e, tz)])
     );
 
     const recurrenceExceptions = events
         .filter((e) => e.recurrenceId !== null)
-        .map((e): [string, OFCEvent] => [e.uid, icsToOFC(e)]);
+        .map((e): [string, OFCEvent] => [e.uid, icsToOFC(e, tz)]);
 
     for (const [uid, event] of recurrenceExceptions) {
         const baseEvent = baseEvents[uid];
