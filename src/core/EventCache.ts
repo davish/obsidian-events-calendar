@@ -567,14 +567,16 @@ export default class EventCache {
                         location,
                         calendarId: calendar.id,
                     }));
-                    newEvents.forEach(({ event, id, location }) => {
-                        this.store.add({
-                            calendar,
-                            location,
-                            id,
-                            event,
+                    newEvents
+                        .filter(({ id }) => !this.store.has(id))
+                        .forEach(({ event, id, location }) => {
+                            this.store.add({
+                                calendar,
+                                location,
+                                id,
+                                event,
+                            });
                         });
-                    });
                     this.updateCalendar({
                         id: calendar.id,
                         editable: false,

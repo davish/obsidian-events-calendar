@@ -192,6 +192,10 @@ export default class EventStore {
         return result;
     }
 
+    has(id: string): boolean {
+        return this.store.has(id);
+    }
+
     /**
      * Add a new event to the store with given associations.
      * @param param0
