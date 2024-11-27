@@ -87,6 +87,7 @@ const getListsUnderHeading = (
     if (!headingPos) {
         return [];
     }
+
     return metadata.listItems?.filter(
         (l) =>
             headingPos.start.offset < l.position.start.offset &&
@@ -109,10 +110,16 @@ const getInlineEventFromLine = (
     globalAttrs: Partial<OFCEvent>
 ): OFCEvent | null => {
     const attrs = getInlineAttributes(text);
+    let extraAttrs: any = {};
 
-    // Shortcut validation if there are no inline attributes.
+    // if there are no inline attributes assume this is a task that isn't
+    // assigned to a time yet and show it in the all-day field so it can be
     if (Object.keys(attrs).length === 0) {
-        return null;
+        extraAttrs = {
+            type: "single",
+            allDay: true,
+            startTime: (globalAttrs as any).date,
+        };
     }
 
     return validateEvent({
@@ -120,6 +127,7 @@ const getInlineEventFromLine = (
         completed: checkboxTodo(text),
         ...globalAttrs,
         ...attrs,
+        ...extraAttrs,
     });
 };
 
