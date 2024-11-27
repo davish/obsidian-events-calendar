@@ -2,13 +2,26 @@ import { TFile, TFolder, parseYaml } from "obsidian";
 import { rrulestr } from "rrule";
 import { EventPathLocation } from "../core/EventStore";
 import { ObsidianInterface } from "../ObsidianAdapter";
-import { OFCEvent, EventLocation, validateEvent } from "../types";
+import {
+    OFCEvent,
+    EventLocation,
+    validateEvent,
+    isRangeTimeData,
+} from "../types";
 import { EditableCalendar, EditableEventResponse } from "./EditableCalendar";
 
-const basenameFromEvent = (event: OFCEvent): string => {
+const basenameFromEvent = (
+    event: OFCEvent,
+    timeInNoteTitle: boolean
+): string => {
     switch (event.type) {
         case undefined:
         case "single":
+            if (timeInNoteTitle && isRangeTimeData(event)) {
+                return `${event.date} ${event.startTime.replace(":", "")} ${
+                    event.title
+                }`;
+            }
             return `${event.date} ${event.title}`;
         case "recurring":
             return `(Every ${event.daysOfWeek.join(",")}) ${event.title}`;
@@ -17,7 +30,8 @@ const basenameFromEvent = (event: OFCEvent): string => {
     }
 };
 
-const filenameForEvent = (event: OFCEvent) => `${basenameFromEvent(event)}.md`;
+const filenameForEvent = (event: OFCEvent, timeInNoteTitle: boolean) =>
+    `${basenameFromEvent(event, timeInNoteTitle)}.md`;
 
 const FRONTMATTER_SEPARATOR = "---";
 
@@ -146,14 +160,24 @@ function modifyFrontmatterString(
 export default class FullNoteCalendar extends EditableCalendar {
     app: ObsidianInterface;
     private _directory: string;
+    private _timeInNoteTitle: boolean;
 
-    constructor(app: ObsidianInterface, color: string, directory: string) {
+    constructor(
+        app: ObsidianInterface,
+        color: string,
+        directory: string,
+        timeInNoteTitle: boolean
+    ) {
         super(color);
         this.app = app;
         this._directory = directory;
+        this._timeInNoteTitle = timeInNoteTitle;
     }
     get directory(): string {
         return this._directory;
+    }
+    get timeInNoteTitle(): boolean {
+        return this._timeInNoteTitle;
     }
 
     get type(): "local" {
@@ -216,7 +240,10 @@ export default class FullNoteCalendar extends EditableCalendar {
     }
 
     async createEvent(event: OFCEvent): Promise<EventLocation> {
-        const path = `${this.directory}/${filenameForEvent(event)}`;
+        const path = `${this.directory}/${filenameForEvent(
+            event,
+            this.timeInNoteTitle
+        )}`;
         if (this.app.getAbstractFileByPath(path)) {
             throw new Error(`Event at ${path} already exists.`);
         }
@@ -239,7 +266,10 @@ export default class FullNoteCalendar extends EditableCalendar {
             );
         }
 
-        const updatedPath = `${file.parent.path}/${filenameForEvent(event)}`;
+        const updatedPath = `${file.parent.path}/${filenameForEvent(
+            event,
+            this.timeInNoteTitle
+        )}`;
         return { file: { path: updatedPath }, lineNumber: undefined };
     }
 

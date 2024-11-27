@@ -232,6 +232,7 @@ export const AddCalendarSource = ({
     const isCalDAV = source.type === "caldav";
 
     const [setting, setSettingState] = useState(source);
+    const [isTimeInNoteTitle, setIsTimeInNoteTitle] = useState(false);
     const [submitting, setSubmitingState] = useState(false);
     const [submitText, setSubmitText] = useState(
         isCalDAV ? "Import Calendars" : "Add Calendar"
@@ -271,6 +272,28 @@ export const AddCalendarSource = ({
                         changeListener={makeChangeListener}
                         directories={directories}
                     />
+                )}
+                {source.type === "local" && (
+                    <div className="setting-item">
+                        <div className="setting-item-info">
+                            <div className="setting-item-name">
+                                Time in note title
+                            </div>
+                            <div className="setting-item-description">
+                                Format note title as &lt;YYYY-MM-DD&gt;
+                                &lt;HHDD&gt; &lt;Event title&gt;.md.
+                            </div>
+                        </div>
+                        <div className="setting-item-control">
+                            <input
+                                checked={isTimeInNoteTitle}
+                                onChange={(e) =>
+                                    setIsTimeInNoteTitle(e.target.checked)
+                                }
+                                type="checkbox"
+                            />
+                        </div>
+                    </div>
                 )}
                 {source.type === "dailynote" && (
                     <HeadingInput
