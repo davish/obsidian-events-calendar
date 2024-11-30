@@ -108,9 +108,15 @@ export const EditEvent = ({
             : ""
     );
     const [endDate, setEndDate] = useState(
-        initialEvent && initialEvent.type === "single"
-            ? initialEvent.endDate
-            : undefined
+        initialEvent
+            ? initialEvent.type === "single"
+                ? initialEvent.endDate || ""
+                : initialEvent.type === "recurring"
+                ? initialEvent.endRecur
+                : initialEvent.type === "rrule"
+                ? initialEvent.startDate || ""
+                : ""
+            : ""
     );
 
     let initialStartTime = "";
@@ -128,7 +134,6 @@ export const EditEvent = ({
     const [isRecurring, setIsRecurring] = useState(
         initialEvent?.type === "recurring" || false
     );
-    const [endRecur, setEndRecur] = useState("");
 
     const [daysOfWeek, setDaysOfWeek] = useState<string[]>(
         (initialEvent?.type === "recurring" ? initialEvent.daysOfWeek : []) ||
@@ -181,7 +186,7 @@ export const EditEvent = ({
                               | "S"
                           )[],
                           startRecur: date || undefined,
-                          endRecur: endRecur || undefined,
+                          endRecur: endDate || undefined,
                       }
                     : {
                           type: "single",
@@ -326,9 +331,10 @@ export const EditEvent = ({
                             <input
                                 type="date"
                                 id="endDate"
-                                value={endRecur}
+                                value={endDate}
                                 onChange={makeChangeListener(
-                                    setEndRecur,
+                                    // @ts-ignore
+                                    setEndDate,
                                     (x) => x
                                 )}
                             />
