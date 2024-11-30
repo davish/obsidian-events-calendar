@@ -63,6 +63,7 @@ export const eventsAreDifferent = (
 export type CachedEvent = Pick<StoredEvent, "event" | "id">;
 
 export type OFCEventSource = {
+    // events: (start: Date, end: Date) => CachedEvent[];
     events: CachedEvent[];
     editable: boolean;
     color: string;

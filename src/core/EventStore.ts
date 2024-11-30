@@ -275,6 +275,33 @@ export default class EventStore {
         return this.fetch([...inFile].filter((id) => inCalendar.has(id)));
     }
 
+    /**
+     * Get all events in a calendar within a specified range.
+     * @param calendar Calendar to filter on.
+     * @param start Start of the date range.
+     * @param end End of the date range.
+     * @returns All events in the calendar within the date range.
+     */
+    getEventsInCalendarWithinRange(
+        calendar: Calendar,
+        start: Date,
+        end: Date
+    ): StoredEvent[] {
+        const between = (start: Date, x: Date, end: Date) =>
+            start.valueOf() <= x.valueOf() && x.valueOf() <= end.valueOf();
+
+        const getDate = (e: OFCEvent) => {
+            if (e.type === "single" || e.type === undefined) {
+                return new Date(e.date);
+            }
+            return null;
+        };
+        return this.getEventsInCalendar(calendar).filter(({ event }) => {
+            const date = getDate(event);
+            return !date || between(start, date, end);
+        });
+    }
+
     get eventsByCalendar(): Map<string, StoredEvent[]> {
         const result = new Map();
         for (const [k, vs] of this.calendarIndex.groupByRelated) {
