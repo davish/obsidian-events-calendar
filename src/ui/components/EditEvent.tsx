@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { CalendarInfo, OFCEvent } from "../../types";
+import "./EditEvent.css";
 
 function makeChangeListener<T>(
     setState: React.Dispatch<React.SetStateAction<T>>,
@@ -97,7 +98,7 @@ export const EditEvent = ({
     defaultCalendarIndex,
 }: EditEventProps) => {
     const [date, setDate] = useState(
-        initialEvent
+        (initialEvent
             ? initialEvent.type === "single"
                 ? initialEvent.date
                 : initialEvent.type === "recurring"
@@ -105,7 +106,7 @@ export const EditEvent = ({
                 : initialEvent.type === "rrule"
                 ? initialEvent.startDate
                 : ""
-            : ""
+            : "") || ""
     );
     const [endDate, setEndDate] = useState(
         initialEvent && initialEvent.type === "single"
@@ -249,7 +250,9 @@ export const EditEvent = ({
                     </select>
                 </p>
                 <p>
-                    {!isRecurring && (
+                    {isRecurring ? (
+                        <></>
+                    ) : (
                         <input
                             type="date"
                             id="date"
@@ -264,6 +267,7 @@ export const EditEvent = ({
                         <></>
                     ) : (
                         <>
+                            {!isRecurring && " @ "}
                             <input
                                 type="time"
                                 id="startTime"
@@ -274,7 +278,7 @@ export const EditEvent = ({
                                     (x) => x
                                 )}
                             />
-                            -
+                            {" - "}
                             <input
                                 type="time"
                                 id="endTime"
@@ -289,22 +293,22 @@ export const EditEvent = ({
                     )}
                 </p>
                 <p>
-                    <label htmlFor="allDay">All day event </label>
                     <input
                         id="allDay"
                         checked={allDay}
                         onChange={(e) => setAllDay(e.target.checked)}
                         type="checkbox"
                     />
+                    <label htmlFor="allDay">All day event</label>
                 </p>
                 <p>
-                    <label htmlFor="recurring">Recurring Event </label>
                     <input
                         id="recurring"
                         checked={isRecurring}
                         onChange={(e) => setIsRecurring(e.target.checked)}
                         type="checkbox"
                     />
+                    <label htmlFor="recurring">Recurring Event</label>
                 </p>
 
                 {isRecurring && (
@@ -313,16 +317,15 @@ export const EditEvent = ({
                             value={daysOfWeek}
                             onChange={setDaysOfWeek}
                         />
-                        <p>
-                            Starts recurring
+                        <div className="ofc-form-grid">
+                            <div>Start:</div>
                             <input
                                 type="date"
                                 id="startDate"
                                 value={date}
-                                // @ts-ignore
                                 onChange={makeChangeListener(setDate, (x) => x)}
                             />
-                            and stops recurring
+                            <div>Stop:</div>
                             <input
                                 type="date"
                                 id="endDate"
@@ -332,11 +335,10 @@ export const EditEvent = ({
                                     (x) => x
                                 )}
                             />
-                        </p>
+                        </div>
                     </>
                 )}
                 <p>
-                    <label htmlFor="task">Task Event </label>
                     <input
                         id="task"
                         checked={isTask}
@@ -345,11 +347,11 @@ export const EditEvent = ({
                         }}
                         type="checkbox"
                     />
+                    <label htmlFor="task">Task Event</label>
                 </p>
 
                 {isTask && (
                     <>
-                        <label htmlFor="taskStatus">Complete? </label>
                         <input
                             id="taskStatus"
                             checked={
@@ -364,6 +366,7 @@ export const EditEvent = ({
                             }
                             type="checkbox"
                         />
+                        <label htmlFor="taskStatus">Complete</label>
                     </>
                 )}
 

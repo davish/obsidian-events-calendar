@@ -1,0 +1,7 @@
+.ofc-form-grid {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 10px;
+	margin-top: 10px;
+	align-items: center;
+}
