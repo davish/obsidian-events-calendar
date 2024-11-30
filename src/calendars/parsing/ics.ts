@@ -1,17 +1,23 @@
 import ical from "ical.js";
 import { OFCEvent, validateEvent } from "../../types";
-import { DateTime } from "luxon";
+import { DateTime, DateTimeJSOptions } from "luxon";
 import { rrulestr } from "rrule";
 
-function getDate(t: ical.Time): string {
-    return DateTime.fromSeconds(t.toUnixTime(), { zone: "UTC" }).toISODate();
+function getDate(
+    t: ical.Time,
+    options: DateTimeJSOptions = { zone: "UTC" }
+): string {
+    return DateTime.fromSeconds(t.toUnixTime(), options).toISODate();
 }
 
-function getTime(t: ical.Time): string {
+function getTime(
+    t: ical.Time,
+    options: DateTimeJSOptions = { zone: "UTC" }
+): string {
     if (t.isDate) {
         return "00:00";
     }
-    return DateTime.fromSeconds(t.toUnixTime(), { zone: "UTC" }).toISOTime({
+    return DateTime.fromSeconds(t.toUnixTime(), options).toISOTime({
         includeOffset: false,
         includePrefix: false,
         suppressMilliseconds: true,
@@ -70,10 +76,11 @@ function icsToOFC(input: ical.Event): OFCEvent {
                   }),
         };
     } else {
-        const date = getDate(input.startDate);
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const date = getDate(input.startDate, { zone });
         const endDate =
             specifiesEnd(input) && input.endDate
-                ? getDate(input.endDate)
+                ? getDate(input.endDate, { zone })
                 : undefined;
         const allDay = input.startDate.isDate;
         return {
@@ -86,8 +93,8 @@ function icsToOFC(input: ical.Event): OFCEvent {
                 ? { allDay: true }
                 : {
                       allDay: false,
-                      startTime: getTime(input.startDate),
-                      endTime: getTime(input.endDate),
+                      startTime: getTime(input.startDate, { zone }),
+                      endTime: getTime(input.endDate, { zone }),
                   }),
         };
     }
