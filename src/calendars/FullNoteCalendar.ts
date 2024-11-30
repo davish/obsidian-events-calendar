@@ -4,6 +4,7 @@ import { EventPathLocation } from "../core/EventStore";
 import { ObsidianInterface } from "../ObsidianAdapter";
 import { OFCEvent, EventLocation, validateEvent } from "../types";
 import { EditableCalendar, EditableEventResponse } from "./EditableCalendar";
+import { join } from "path";
 
 const basenameFromEvent = (event: OFCEvent): string => {
     switch (event.type) {
@@ -216,7 +217,14 @@ export default class FullNoteCalendar extends EditableCalendar {
     }
 
     async createEvent(event: OFCEvent): Promise<EventLocation> {
-        const path = `${this.directory}/${filenameForEvent(event)}`;
+        const event_filename = filenameForEvent(event);
+        const path = join(this.directory, event_filename);
+
+        if (!path.startsWith(this.directory)) {
+            throw new Error(
+                `Event at ${path} will not be in calendar directory.`
+            );
+        }
         if (this.app.getAbstractFileByPath(path)) {
             throw new Error(`Event at ${path} already exists.`);
         }
